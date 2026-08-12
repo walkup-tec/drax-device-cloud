@@ -1,0 +1,19 @@
+{
+  "name": "@ddc/application",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test dist/**/*.test.js"
+  },
+  "dependencies": {
+    "@ddc/domain": "0.1.0",
+    "@ddc/infra-common": "0.1.0",
+    "@ddc/virtual-device-provider": "0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}

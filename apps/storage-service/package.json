@@ -1,0 +1,8 @@
+﻿{
+  "name": "@ddc/storage-service",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "SERVICE_NAME=storage-service PORT=4067 node server.js"
+  }
+}

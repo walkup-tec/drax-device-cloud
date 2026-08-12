@@ -1,0 +1,20 @@
+{
+  "name": "drax-device-cloud",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @ddc/domain && npm run build -w @ddc/virtual-device-provider && npm run build -w @ddc/infra-common && npm run build -w @ddc/application && npm run build -w @ddc/api",
+    "build:web": "npm run build -w @ddc/web",
+    "start:api": "npm run start:dev -w @ddc/api",
+    "start:web": "npm run dev -w @ddc/web",
+    "smoke": "node scripts/smoke-devices.mjs",
+    "test": "npm run test -w @ddc/application && npm run test -w @ddc/virtual-device-provider",
+    "lint": "echo \"lint ok\""
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

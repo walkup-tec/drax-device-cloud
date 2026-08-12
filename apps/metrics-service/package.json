@@ -1,0 +1,8 @@
+﻿{
+  "name": "@ddc/metrics-service",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "SERVICE_NAME=metrics-service PORT=4065 node server.js"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@ddc/infra-common",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "amqplib": "^0.10.5"
+  },
+  "devDependencies": {
+    "@types/amqplib": "^0.10.6",
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}

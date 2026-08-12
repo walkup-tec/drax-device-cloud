@@ -1,0 +1,18 @@
+# Redroid worker — requires Linux host with /dev/kvm
+services:
+  redroid-slot-0:
+    image: redroid/redroid:12.0.0-latest
+    privileged: true
+    ports:
+      - "5555:5555"
+    volumes:
+      - redroid_data_0:/data
+    command:
+      - androidboot.redroid_width=1080
+      - androidboot.redroid_height=2400
+      - androidboot.redroid_dpi=420
+    devices:
+      - /dev/kvm
+
+volumes:
+  redroid_data_0:

@@ -1,0 +1,42 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "DRAX Device Cloud API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/auth/sso": {
+      "post": {
+        "summary": "Exchange WABA SSO token",
+        "responses": { "200": { "description": "Tokens" } }
+      }
+    },
+    "/devices": {
+      "get": { "summary": "List devices", "responses": { "200": { "description": "OK" } } },
+      "post": { "summary": "Create device", "responses": { "201": { "description": "Created" } } }
+    },
+    "/devices/{id}": {
+      "get": { "summary": "Get device", "responses": { "200": { "description": "OK" } } },
+      "patch": { "summary": "Patch device", "responses": { "200": { "description": "OK" } } },
+      "delete": { "summary": "Delete device", "responses": { "204": { "description": "Deleted" } } }
+    },
+    "/devices/{id}/start": {
+      "post": { "summary": "Start", "responses": { "200": { "description": "OK" } } }
+    },
+    "/devices/{id}/stop": {
+      "post": { "summary": "Stop", "responses": { "200": { "description": "OK" } } }
+    },
+    "/devices/{id}/restart": {
+      "post": { "summary": "Restart", "responses": { "200": { "description": "OK" } } }
+    },
+    "/devices/{id}/stream": {
+      "get": { "summary": "WebRTC stream (Beta)", "responses": { "501": { "description": "Not implemented" } } }
+    }
+  }
+}

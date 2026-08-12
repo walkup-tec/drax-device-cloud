@@ -1,0 +1,8 @@
+# Helm charts reserved for Beta+.
+# MVP deploys via docker compose on API host + redroid compose on KVM worker.
+apiVersion: v2
+name: drax-device-cloud
+description: DRAX Device Cloud (placeholder chart)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

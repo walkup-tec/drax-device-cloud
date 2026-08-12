@@ -1,0 +1,8 @@
+﻿{
+  "name": "@ddc/snapshot-service",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "SERVICE_NAME=snapshot-service PORT=4063 node server.js"
+  }
+}

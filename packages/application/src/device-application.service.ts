@@ -1,0 +1,133 @@
+import {
+  CreateDeviceInput,
+  Device,
+  DEVICE_EVENTS,
+  DeviceStatus,
+} from "@ddc/domain";
+import type { EventBus } from "@ddc/infra-common";
+import type { DeviceHandle, VirtualDeviceProvider } from "@ddc/virtual-device-provider";
+
+export type DeviceRepository = {
+  create(input: CreateDeviceInput & { id: string; status: DeviceStatus }): Promise<Device>;
+  update(id: string, patch: Partial<Device>): Promise<Device>;
+  findById(id: string): Promise<Device | null>;
+  listByTenant(tenantId: string): Promise<Device[]>;
+  delete(id: string): Promise<void>;
+};
+
+function parseRes(res: string): { width: number; height: number } {
+  const m = String(res || "1080x2400").match(/(\d+)\s*[xX]\s*(\d+)/);
+  return { width: Number(m?.[1] || 1080), height: Number(m?.[2] || 2400) };
+}
+
+export class DeviceApplicationService {
+  constructor(
+    private readonly repo: DeviceRepository,
+    private readonly provider: VirtualDeviceProvider,
+    private readonly events: EventBus,
+  ) {}
+
+  async create(input: CreateDeviceInput): Promise<Device> {
+    const id = cryptoRandomUuid();
+    let device = await this.repo.create({
+      ...input,
+      id,
+      status: DeviceStatus.CREATING,
+    });
+
+    try {
+      const { width, height } = parseRes(device.screenResolution);
+      const handle = await this.provider.provision({
+        name: device.name,
+        androidVersion: device.androidVersion,
+        width,
+        height,
+        dpi: device.density,
+        ramMb: device.ramMb,
+      });
+      device = await this.repo.update(id, {
+        providerHandle: handle as unknown as Record<string, unknown>,
+        status: DeviceStatus.STARTING,
+      });
+      await this.provider.start(handle);
+      const now = new Date().toISOString();
+      device = await this.repo.update(id, {
+        status: DeviceStatus.ONLINE,
+        lastBoot: now,
+        lastHeartbeat: now,
+      });
+      await this.events.publish(DEVICE_EVENTS.Created, { deviceId: id });
+      await this.events.publish(DEVICE_EVENTS.Started, { deviceId: id });
+      return device;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      device = await this.repo.update(id, {
+        status: DeviceStatus.ERROR,
+        metadata: { ...(device.metadata || {}), error: message },
+      });
+      await this.events.publish(DEVICE_EVENTS.Error, { deviceId: id, message });
+      return device;
+    }
+  }
+
+  list(tenantId: string): Promise<Device[]> {
+    return this.repo.listByTenant(tenantId);
+  }
+
+  get(id: string): Promise<Device | null> {
+    return this.repo.findById(id);
+  }
+
+  async start(id: string): Promise<Device> {
+    const device = await this.require(id);
+    const handle = device.providerHandle as unknown as DeviceHandle;
+    await this.repo.update(id, { status: DeviceStatus.STARTING });
+    await this.provider.start(handle);
+    const now = new Date().toISOString();
+    const updated = await this.repo.update(id, {
+      status: DeviceStatus.ONLINE,
+      lastBoot: now,
+      lastHeartbeat: now,
+    });
+    await this.events.publish(DEVICE_EVENTS.Started, { deviceId: id });
+    return updated;
+  }
+
+  async stop(id: string): Promise<Device> {
+    const device = await this.require(id);
+    const handle = device.providerHandle as unknown as DeviceHandle;
+    await this.repo.update(id, { status: DeviceStatus.STOPPING });
+    await this.provider.stop(handle);
+    const updated = await this.repo.update(id, { status: DeviceStatus.STOPPED });
+    await this.events.publish(DEVICE_EVENTS.Stopped, { deviceId: id });
+    return updated;
+  }
+
+  async restart(id: string): Promise<Device> {
+    await this.stop(id);
+    return this.start(id);
+  }
+
+  async remove(id: string): Promise<void> {
+    const device = await this.require(id);
+    const handle = device.providerHandle as unknown as DeviceHandle;
+    try {
+      await this.provider.destroy(handle);
+    } catch {
+      /* continue delete */
+    }
+    await this.repo.delete(id);
+    await this.events.publish(DEVICE_EVENTS.Deleted, { deviceId: id });
+  }
+
+  private async require(id: string): Promise<Device> {
+    const device = await this.repo.findById(id);
+    if (!device) throw new Error("Device not found");
+    return device;
+  }
+}
+
+function cryptoRandomUuid(): string {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return require("crypto").randomUUID();
+}

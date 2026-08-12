@@ -1,0 +1,8 @@
+{
+  "name": "@ddc/adb-service",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "SERVICE_NAME=adb-service PORT=4061 node server.js"
+  }
+}

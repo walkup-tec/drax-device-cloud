@@ -1,0 +1,57 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ddc
+      POSTGRES_PASSWORD: ddc
+      POSTGRES_DB: drax_device_cloud
+    ports:
+      - "5433:5432"
+    volumes:
+      - ddc_pg:/var/lib/postgresql/data
+      - ./sql/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ddc -d drax_device_cloud"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ddc
+      RABBITMQ_DEFAULT_PASS: ddc
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:RELEASE.2024-12-18T13-15-44Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ddcminio
+      MINIO_ROOT_PASSWORD: ddcminio_secret
+    ports:
+      - "9002:9000"
+      - "9003:9001"
+    volumes:
+      - ddc_minio:/data
+
+volumes:
+  ddc_pg:
+  ddc_minio:

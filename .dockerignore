@@ -6,12 +6,4 @@ node_modules
 .tmp
 .env
 **/.env
-*.md
-apps/adb-service
-apps/streaming-service
-apps/snapshot-service
-apps/scheduler-service
-apps/metrics-service
-apps/notification-service
-apps/storage-service
 infra/redroid

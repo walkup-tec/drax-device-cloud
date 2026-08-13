@@ -1,7 +1,11 @@
+const path = require("path");
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   output: "standalone",
+  // monorepo: standalone inclui apps/web/server.js a partir da raiz do repo
+  outputFileTracingRoot: path.join(__dirname, "../.."),
   async headers() {
     return [
       {

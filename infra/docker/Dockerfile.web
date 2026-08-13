@@ -7,7 +7,7 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 COPY package.json package-lock.json ./
 COPY apps ./apps
 COPY packages ./packages
-RUN npm ci
+RUN npm install --no-fund --no-audit
 RUN npm run build -w @ddc/web
 
 FROM node:20.18.1-alpine AS runner

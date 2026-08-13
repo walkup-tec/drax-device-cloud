@@ -5,7 +5,10 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps ./apps
 COPY packages ./packages
-RUN npm ci
+# API image does not need the Next.js workspace
+RUN rm -rf apps/web
+# lockfile pode estar dessincronizado no monorepo; install resolve no build
+RUN npm install --no-fund --no-audit
 RUN npm run build
 
 FROM node:20.18.1-alpine AS runner

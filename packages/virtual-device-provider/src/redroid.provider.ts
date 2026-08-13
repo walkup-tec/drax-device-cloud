@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { execFile } from "child_process";
+import { existsSync } from "fs";
 import { promisify } from "util";
 import type {
   DeviceHandle,
@@ -7,6 +8,7 @@ import type {
   ProviderStatus,
   VirtualDeviceProvider,
 } from "./types";
+import { AdbClient } from "./adb.client";
 
 const execFileAsync = promisify(execFile);
 
@@ -19,7 +21,7 @@ export type RedroidProviderOptions = {
 /**
  * Redroid Virtual Device Provider.
  * - simulate: no Docker/KVM required (local/dev)
- * - docker: `docker run` privileged Redroid (Linux + /dev/kvm)
+ * - docker: `docker run` privileged Redroid (Linux + /dev/kvm) + ADB
  */
 export class RedroidProvider implements VirtualDeviceProvider {
   readonly kind = "redroid" as const;
@@ -27,6 +29,7 @@ export class RedroidProvider implements VirtualDeviceProvider {
   private readonly image: string;
   private readonly dockerBin: string;
   private readonly simulated = new Map<string, ProviderStatus>();
+  private readonly adb = new AdbClient();
 
   constructor(opts?: RedroidProviderOptions) {
     this.mode = opts?.mode === "docker" ? "docker" : "simulate";
@@ -47,6 +50,8 @@ export class RedroidProvider implements VirtualDeviceProvider {
       };
     }
 
+    await this.assertKvmOrWarn();
+
     const name = `ddc-redroid-${randomUUID().slice(0, 8)}`;
     const [width, height] = parseResolution(spec);
     const args = [
@@ -56,20 +61,34 @@ export class RedroidProvider implements VirtualDeviceProvider {
       "--name",
       name,
       "-p",
-      "5555",
+      "127.0.0.1::5555",
+      "--device",
+      "/dev/kvm",
       this.image,
       `androidboot.redroid_width=${width}`,
       `androidboot.redroid_height=${height}`,
       `androidboot.redroid_dpi=${spec.dpi}`,
     ];
-    const { stdout } = await execFileAsync(this.dockerBin, args, { timeout: 120_000 });
+    const { stdout } = await execFileAsync(this.dockerBin, args, { timeout: 180_000 });
     const containerId = String(stdout || "").trim() || name;
+    const hostPort = await this.resolvePublishedAdbPort(name);
+    const connectHost = process.env.ADB_CONNECT_HOST || "172.17.0.1";
+    const adbSerial = `${connectHost}:${hostPort}`;
+
+    try {
+      await this.adb.waitForBoot(adbSerial, 240_000);
+    } catch (err) {
+      // keep container; surface boot error with serial for debug
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(`Redroid up but ADB boot failed (${adbSerial}): ${message}`);
+    }
+
     return {
       provider: "redroid",
       containerId,
-      adbSerial: `${name}:5555`,
+      adbSerial,
       simulated: false,
-      meta: { dockerName: name },
+      meta: { dockerName: name, adbHostPort: hostPort, connectHost },
     };
   }
 
@@ -81,6 +100,13 @@ export class RedroidProvider implements VirtualDeviceProvider {
     await execFileAsync(this.dockerBin, ["start", String(handle.containerId)], {
       timeout: 60_000,
     });
+    if (handle.adbSerial) {
+      try {
+        await this.adb.waitForBoot(handle.adbSerial, 180_000);
+      } catch {
+        /* status may still be starting */
+      }
+    }
     return handle;
   }
 
@@ -136,6 +162,57 @@ export class RedroidProvider implements VirtualDeviceProvider {
       running: status === "running" ? 1 : 0,
       simulated: handle.simulated || this.mode === "simulate" ? 1 : 0,
     };
+  }
+
+  async installApkFromUrl(handle: DeviceHandle, apkUrl: string): Promise<void> {
+    if (handle.simulated || this.mode === "simulate") {
+      throw new Error(
+        "Modo simulate: não há Android real. Ative REDROID_MODE=docker com KVM + docker.sock.",
+      );
+    }
+    if (!handle.adbSerial) throw new Error("Device sem adbSerial");
+    const path = await this.adb.downloadToTemp(apkUrl, "wa");
+    try {
+      await this.adb.installApk(handle.adbSerial, path);
+    } finally {
+      await this.adb.safeUnlink(path);
+    }
+  }
+
+  async screenshot(handle: DeviceHandle): Promise<Buffer> {
+    if (handle.simulated || this.mode === "simulate") {
+      throw new Error("Screenshot indisponível em modo simulate (sem Android real).");
+    }
+    if (!handle.adbSerial) throw new Error("Device sem adbSerial");
+    return this.adb.screenshotPng(handle.adbSerial);
+  }
+
+  async launchApp(handle: DeviceHandle, packageName: string): Promise<void> {
+    if (handle.simulated || this.mode === "simulate") {
+      throw new Error("Launch indisponível em modo simulate.");
+    }
+    if (!handle.adbSerial) throw new Error("Device sem adbSerial");
+    await this.adb.launchPackage(handle.adbSerial, packageName);
+  }
+
+  private async resolvePublishedAdbPort(containerName: string): Promise<number> {
+    const { stdout } = await execFileAsync(
+      this.dockerBin,
+      ["port", containerName, "5555/tcp"],
+      { timeout: 15_000 },
+    );
+    // 127.0.0.1:49172
+    const m = String(stdout).match(/:(\d+)\s*$/m);
+    if (!m) throw new Error(`Não foi possível ler porta ADB publicada: ${stdout}`);
+    return Number(m[1]);
+  }
+
+  private async assertKvmOrWarn(): Promise<void> {
+    if (!existsSync("/dev/kvm")) {
+      throw new Error(
+        "Host sem /dev/kvm. Redroid real exige Linux com KVM. Use um worker KVM ou REDROID_MODE=simulate só para UI.",
+      );
+    }
   }
 }
 

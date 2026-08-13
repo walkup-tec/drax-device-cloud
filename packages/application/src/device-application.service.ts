@@ -120,6 +120,57 @@ export class DeviceApplicationService {
     await this.events.publish(DEVICE_EVENTS.Deleted, { deviceId: id });
   }
 
+  async installApkFromUrl(id: string, apkUrl: string): Promise<Device> {
+    const device = await this.require(id);
+    const handle = device.providerHandle as unknown as DeviceHandle;
+    const provider = this.provider as VirtualDeviceProvider & {
+      installApkFromUrl?: (h: DeviceHandle, url: string) => Promise<void>;
+    };
+    if (!provider.installApkFromUrl) {
+      throw new Error("Provider não suporta install APK");
+    }
+    await this.repo.update(id, { status: DeviceStatus.INSTALLING_APK });
+    try {
+      await provider.installApkFromUrl(handle, apkUrl);
+      return this.repo.update(id, {
+        status: DeviceStatus.ONLINE,
+        metadata: {
+          ...(device.metadata || {}),
+          lastApkUrl: apkUrl,
+          lastApkAt: new Date().toISOString(),
+        },
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await this.repo.update(id, {
+        status: DeviceStatus.ERROR,
+        metadata: { ...(device.metadata || {}), error: message },
+      });
+      throw err;
+    }
+  }
+
+  async screenshot(id: string): Promise<Buffer> {
+    const device = await this.require(id);
+    const handle = device.providerHandle as unknown as DeviceHandle;
+    const provider = this.provider as VirtualDeviceProvider & {
+      screenshot?: (h: DeviceHandle) => Promise<Buffer>;
+    };
+    if (!provider.screenshot) throw new Error("Provider não suporta screenshot");
+    return provider.screenshot(handle);
+  }
+
+  async launchApp(id: string, packageName: string): Promise<Device> {
+    const device = await this.require(id);
+    const handle = device.providerHandle as unknown as DeviceHandle;
+    const provider = this.provider as VirtualDeviceProvider & {
+      launchApp?: (h: DeviceHandle, pkg: string) => Promise<void>;
+    };
+    if (!provider.launchApp) throw new Error("Provider não suporta launchApp");
+    await provider.launchApp(handle, packageName);
+    return device;
+  }
+
   private async require(id: string): Promise<Device> {
     const device = await this.repo.findById(id);
     if (!device) throw new Error("Device not found");

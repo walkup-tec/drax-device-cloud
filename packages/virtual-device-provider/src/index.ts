@@ -49,4 +49,5 @@ export type {
   VirtualDeviceProvider,
 } from "./types";
 export { RedroidProvider } from "./redroid.provider";
+export { AdbClient } from "./adb.client";
 export { createVirtualDeviceProvider } from "./factory";

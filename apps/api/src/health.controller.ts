@@ -7,7 +7,7 @@ export class HealthController {
     return {
       ok: true,
       service: "drax-device-cloud-api",
-      marker: "DEPLOY-2026-08-12-device-cloud-mvp",
+      marker: "DEPLOY-2026-08-13-device-cloud-wa-apk",
     };
   }
 

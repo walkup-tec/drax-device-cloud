@@ -61,4 +61,16 @@ export class DevicesService implements OnModuleInit {
   remove(id: string) {
     return this.app.remove(id);
   }
+
+  installApkFromUrl(id: string, apkUrl: string) {
+    return this.app.installApkFromUrl(id, apkUrl);
+  }
+
+  screenshot(id: string) {
+    return this.app.screenshot(id);
+  }
+
+  launchApp(id: string, packageName: string) {
+    return this.app.launchApp(id, packageName);
+  }
 }

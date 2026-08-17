@@ -82,6 +82,101 @@ export class AdbClient {
     );
   }
 
+  async inputTap(serial: string, x: number, y: number): Promise<void> {
+    await this.connect(serial);
+    await execFileAsync(this.adbBin, ["-s", serial, "shell", "input", "tap", String(x), String(y)], {
+      timeout: 15_000,
+    });
+  }
+
+  async inputSwipe(
+    serial: string,
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    durationMs = 280,
+  ): Promise<void> {
+    await this.connect(serial);
+    await execFileAsync(
+      this.adbBin,
+      [
+        "-s",
+        serial,
+        "shell",
+        "input",
+        "swipe",
+        String(x1),
+        String(y1),
+        String(x2),
+        String(y2),
+        String(Math.max(50, Math.min(1200, durationMs))),
+      ],
+      { timeout: 20_000 },
+    );
+  }
+
+  async inputText(serial: string, text: string): Promise<void> {
+    await this.connect(serial);
+    const escaped = String(text || "")
+      .replace(/\\/g, "\\\\")
+      .replace(/"/g, '\\"')
+      .replace(/ /g, "%s");
+    await execFileAsync(this.adbBin, ["-s", serial, "shell", "input", "text", escaped], {
+      timeout: 15_000,
+    });
+  }
+
+  async inputKey(serial: string, key: "back" | "home" | "enter"): Promise<void> {
+    const code = key === "back" ? "4" : key === "home" ? "3" : "66";
+    await this.connect(serial);
+    await execFileAsync(this.adbBin, ["-s", serial, "shell", "input", "keyevent", code], {
+      timeout: 15_000,
+    });
+  }
+
+  async pushFile(serial: string, localPath: string, remotePath: string): Promise<void> {
+    await this.connect(serial);
+    const remoteDir = remotePath.replace(/\/[^/]+$/, "");
+    if (remoteDir) {
+      await execFileAsync(this.adbBin, ["-s", serial, "shell", "mkdir", "-p", remoteDir], {
+        timeout: 15_000,
+      }).catch(() => undefined);
+    }
+    await execFileAsync(this.adbBin, ["-s", serial, "push", localPath, remotePath], {
+      timeout: 120_000,
+    });
+  }
+
+  async scanMediaFile(serial: string, remotePath: string): Promise<void> {
+    await this.connect(serial);
+    const uri = `file://${remotePath.startsWith("/") ? remotePath : `/${remotePath}`}`;
+    await execFileAsync(
+      this.adbBin,
+      [
+        "-s",
+        serial,
+        "shell",
+        "am",
+        "broadcast",
+        "-a",
+        "android.intent.action.MEDIA_SCANNER_SCAN_FILE",
+        "-d",
+        uri,
+      ],
+      { timeout: 20_000 },
+    ).catch(() => undefined);
+  }
+
+  async writeBufferToTemp(buffer: Buffer, prefix: string, ext: string): Promise<string> {
+    const dir = join(tmpdir(), "ddc-files");
+    await mkdir(dir, { recursive: true });
+    const safeExt = ext.replace(/[^a-z0-9.]/gi, "").slice(0, 8) || "bin";
+    const file = join(dir, `${prefix}-${Date.now()}.${safeExt}`);
+    await writeFile(file, buffer);
+    return file;
+  }
+
   async downloadToTemp(url: string, prefix = "ddc-apk"): Promise<string> {
     const dir = join(tmpdir(), "ddc-apks");
     await mkdir(dir, { recursive: true });

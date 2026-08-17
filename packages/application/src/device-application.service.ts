@@ -171,6 +171,60 @@ export class DeviceApplicationService {
     return device;
   }
 
+  async inputTap(id: string, x: number, y: number): Promise<void> {
+    const device = await this.require(id);
+    const handle = device.providerHandle as unknown as DeviceHandle;
+    const provider = this.provider as VirtualDeviceProvider & {
+      inputTap?: (h: DeviceHandle, x: number, y: number) => Promise<void>;
+    };
+    if (!provider.inputTap) throw new Error("Provider não suporta input tap");
+    await provider.inputTap(handle, x, y);
+  }
+
+  async inputSwipe(
+    id: string,
+    body: { x1: number; y1: number; x2: number; y2: number; durationMs?: number },
+  ): Promise<void> {
+    const device = await this.require(id);
+    const handle = device.providerHandle as unknown as DeviceHandle;
+    const provider = this.provider as VirtualDeviceProvider & {
+      inputSwipe?: (h: DeviceHandle, b: typeof body) => Promise<void>;
+    };
+    if (!provider.inputSwipe) throw new Error("Provider não suporta input swipe");
+    await provider.inputSwipe(handle, body);
+  }
+
+  async inputText(id: string, text: string): Promise<void> {
+    const device = await this.require(id);
+    const handle = device.providerHandle as unknown as DeviceHandle;
+    const provider = this.provider as VirtualDeviceProvider & {
+      inputText?: (h: DeviceHandle, text: string) => Promise<void>;
+    };
+    if (!provider.inputText) throw new Error("Provider não suporta input text");
+    await provider.inputText(handle, text);
+  }
+
+  async inputKey(id: string, key: "back" | "home" | "enter"): Promise<void> {
+    const device = await this.require(id);
+    const handle = device.providerHandle as unknown as DeviceHandle;
+    const provider = this.provider as VirtualDeviceProvider & {
+      inputKey?: (h: DeviceHandle, key: "back" | "home" | "enter") => Promise<void>;
+    };
+    if (!provider.inputKey) throw new Error("Provider não suporta input key");
+    await provider.inputKey(handle, key);
+  }
+
+  async pushFile(id: string, remotePath: string, content: Buffer): Promise<{ remotePath: string }> {
+    const device = await this.require(id);
+    const handle = device.providerHandle as unknown as DeviceHandle;
+    const provider = this.provider as VirtualDeviceProvider & {
+      pushFile?: (h: DeviceHandle, remotePath: string, content: Buffer) => Promise<void>;
+    };
+    if (!provider.pushFile) throw new Error("Provider não suporta push de arquivo");
+    await provider.pushFile(handle, remotePath, content);
+    return { remotePath };
+  }
+
   private async require(id: string): Promise<Device> {
     const device = await this.repo.findById(id);
     if (!device) throw new Error("Device not found");

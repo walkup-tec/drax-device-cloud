@@ -195,6 +195,52 @@ export class RedroidProvider implements VirtualDeviceProvider {
     await this.adb.launchPackage(handle.adbSerial, packageName);
   }
 
+  private requireRealAdb(handle: DeviceHandle): string {
+    if (handle.simulated || this.mode === "simulate") {
+      throw new Error("Recurso indisponível em modo simulate (sem Android real).");
+    }
+    if (!handle.adbSerial) throw new Error("Device sem adbSerial");
+    return handle.adbSerial;
+  }
+
+  async inputTap(handle: DeviceHandle, x: number, y: number): Promise<void> {
+    await this.adb.inputTap(this.requireRealAdb(handle), x, y);
+  }
+
+  async inputSwipe(
+    handle: DeviceHandle,
+    body: { x1: number; y1: number; x2: number; y2: number; durationMs?: number },
+  ): Promise<void> {
+    await this.adb.inputSwipe(
+      this.requireRealAdb(handle),
+      body.x1,
+      body.y1,
+      body.x2,
+      body.y2,
+      body.durationMs,
+    );
+  }
+
+  async inputText(handle: DeviceHandle, text: string): Promise<void> {
+    await this.adb.inputText(this.requireRealAdb(handle), text);
+  }
+
+  async inputKey(handle: DeviceHandle, key: "back" | "home" | "enter"): Promise<void> {
+    await this.adb.inputKey(this.requireRealAdb(handle), key);
+  }
+
+  async pushFile(handle: DeviceHandle, remotePath: string, content: Buffer): Promise<void> {
+    const serial = this.requireRealAdb(handle);
+    const ext = remotePath.includes(".") ? remotePath.split(".").pop() || "bin" : "bin";
+    const localPath = await this.adb.writeBufferToTemp(content, "ddc-push", ext);
+    try {
+      await this.adb.pushFile(serial, localPath, remotePath);
+      await this.adb.scanMediaFile(serial, remotePath);
+    } finally {
+      await this.adb.safeUnlink(localPath);
+    }
+  }
+
   private async resolvePublishedAdbPort(containerName: string): Promise<number> {
     const { stdout } = await execFileAsync(
       this.dockerBin,

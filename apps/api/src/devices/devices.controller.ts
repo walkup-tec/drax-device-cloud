@@ -128,18 +128,118 @@ export class DevicesController {
     }
   }
 
-  @Post(":id/launch-whatsapp-business")
-  async launchWa(@Param("id") id: string) {
-    try {
-      const device = await this.devices.launchApp(id, WA_PACKAGE);
-      return { ok: true, device, package: WA_PACKAGE };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      throw new HttpException(message, 400);
-    }
-  }
+ @Post(":id/launch-whatsapp-business")
+ async launchWa(@Param("id") id: string) {
+ try {
+ const device = await this.devices.launchApp(id, WA_PACKAGE);
+ return { ok: true, device, package: WA_PACKAGE };
+ } catch (err) {
+ const message = err instanceof Error ? err.message : String(err);
+ throw new HttpException(message, 400);
+ }
+ }
 
-  @Get(":id/stream")
+ @Post(":id/push-file")
+ async pushFile(
+ @Param("id") id: string,
+ @Body() body: { remotePath?: string; contentBase64?: string },
+ ) {
+ try {
+ const remotePath = String(body?.remotePath || "").trim();
+ const contentBase64 = String(body?.contentBase64 || "").trim();
+ if (!remotePath.startsWith("/sdcard/Download/") || remotePath.includes("..")) {
+ throw new HttpException("remotePath deve começar com /sdcard/Download/", 400);
+ }
+ if (!contentBase64) throw new HttpException("contentBase64 é obrigatório", 400);
+ const content = Buffer.from(contentBase64, "base64");
+ if (!content.length || content.length > 5 * 1024 * 1024) {
+ throw new HttpException("Arquivo inválido ou maior que 5 MB", 400);
+ }
+ const result = await this.devices.pushFile(id, remotePath, content);
+ return { ok: true, ...result };
+ } catch (err) {
+ if (err instanceof HttpException) throw err;
+ const message = err instanceof Error ? err.message : String(err);
+ throw new HttpException(message, 400);
+ }
+ }
+
+ @Post(":id/input/tap")
+ async inputTap(@Param("id") id: string, @Body() body: { x?: number; y?: number }) {
+ try {
+ const x = Number(body?.x);
+ const y = Number(body?.y);
+ if (!Number.isFinite(x) || !Number.isFinite(y)) {
+ throw new HttpException("Coordenadas x/y inválidas", 400);
+ }
+ await this.devices.inputTap(id, Math.round(x), Math.round(y));
+ return { ok: true };
+ } catch (err) {
+ if (err instanceof HttpException) throw err;
+ const message = err instanceof Error ? err.message : String(err);
+ throw new HttpException(message, 400);
+ }
+ }
+
+ @Post(":id/input/swipe")
+ async inputSwipe(
+ @Param("id") id: string,
+ @Body() body: { x1?: number; y1?: number; x2?: number; y2?: number; durationMs?: number },
+ ) {
+ try {
+ const x1 = Number(body?.x1);
+ const y1 = Number(body?.y1);
+ const x2 = Number(body?.x2);
+ const y2 = Number(body?.y2);
+ if (![x1, y1, x2, y2].every(Number.isFinite)) {
+ throw new HttpException("Coordenadas inválidas", 400);
+ }
+ await this.devices.inputSwipe(id, {
+ x1: Math.round(x1),
+ y1: Math.round(y1),
+ x2: Math.round(x2),
+ y2: Math.round(y2),
+ durationMs: Math.max(150, Math.min(800, Math.round(Number(body?.durationMs ?? 280)))),
+ });
+ return { ok: true };
+ } catch (err) {
+ if (err instanceof HttpException) throw err;
+ const message = err instanceof Error ? err.message : String(err);
+ throw new HttpException(message, 400);
+ }
+ }
+
+ @Post(":id/input/text")
+ async inputText(@Param("id") id: string, @Body() body: { text?: string }) {
+ try {
+ const text = String(body?.text || "");
+ if (!text || text.length > 200) throw new HttpException("Texto inválido", 400);
+ await this.devices.inputText(id, text);
+ return { ok: true };
+ } catch (err) {
+ if (err instanceof HttpException) throw err;
+ const message = err instanceof Error ? err.message : String(err);
+ throw new HttpException(message, 400);
+ }
+ }
+
+ @Post(":id/input/key")
+ async inputKey(@Param("id") id: string, @Body() body: { key?: string }) {
+ try {
+ const key = String(body?.key || "").trim().toLowerCase();
+ if (key !== "back" && key !== "home" && key !== "enter") {
+ throw new HttpException("Tecla inválida", 400);
+ }
+ await this.devices.inputKey(id, key);
+ return { ok: true };
+ } catch (err) {
+ if (err instanceof HttpException) throw err;
+ const message = err instanceof Error ? err.message : String(err);
+ throw new HttpException(message, 400);
+ }
+ }
+
+ @Get(":id/stream")
   stream(@Param("id") id: string) {
     return {
       mode: "screenshot-poll",

@@ -73,4 +73,27 @@ export class DevicesService implements OnModuleInit {
   launchApp(id: string, packageName: string) {
     return this.app.launchApp(id, packageName);
   }
+
+  inputTap(id: string, x: number, y: number) {
+    return this.app.inputTap(id, x, y);
+  }
+
+  inputSwipe(
+    id: string,
+    body: { x1: number; y1: number; x2: number; y2: number; durationMs?: number },
+  ) {
+    return this.app.inputSwipe(id, body);
+  }
+
+  inputText(id: string, text: string) {
+    return this.app.inputText(id, text);
+  }
+
+  inputKey(id: string, key: "back" | "home" | "enter") {
+    return this.app.inputKey(id, key);
+  }
+
+  pushFile(id: string, remotePath: string, content: Buffer) {
+    return this.app.pushFile(id, remotePath, content);
+  }
 }

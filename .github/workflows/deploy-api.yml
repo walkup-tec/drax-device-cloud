@@ -1,6 +1,6 @@
-# Redeploy da API Device Cloud no Easypanel (VPS) após push em main.
-# Secrets em GitHub → Settings → Secrets → Actions:
-#   VPS_SSH_PRIVATE_KEY — chave SSH root@srv1261237 (72.60.51.127)
+# Redeploy da API Device Cloud no servidor AWS (systemd ddc-api) após push em main.
+# Host real: api-devices.draxsistemas.com.br → 3.134.105.10 (não Hostinger 72.60.51.127)
+# Secrets: VPS_DEVICE_CLOUD_SSH_KEY (chave ubuntu@3.134.105.10) — opcional se usar script no servidor
 
 name: Deploy Device Cloud API
 
@@ -14,27 +14,24 @@ jobs:
   redeploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Redeploy Easypanel device-cloud-api
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy push-file via SSH (AWS)
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: 72.60.51.127
-          username: root
-          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          host: 3.134.105.10
+          username: ubuntu
+          key: ${{ secrets.VPS_DEVICE_CLOUD_SSH_KEY }}
           script_stop: true
           script: |
             set -euo pipefail
-            echo "=== Easypanel: redeploy device-cloud-api ==="
-            if command -v easypanel >/dev/null 2>&1; then
-              easypanel services redeploy device-cloud-api || easypanel app redeploy device-cloud-api || true
-            fi
-            # Fallback: rebuild via docker compose path conhecido no VPS
-            for d in /etc/easypanel/projects/*/device-cloud-api /etc/easypanel/projects/drax/device-cloud-api; do
-              if [[ -d "$d" ]]; then
-                echo "Found service dir: $d"
-                cd "$d"
-                docker compose pull 2>/dev/null || true
-                docker compose up -d --build 2>/dev/null || true
-              fi
-            done
-            sleep 20
-            curl -fsS http://127.0.0.1:4050/health || curl -fsS https://api-devices.draxsistemas.com.br/health
+            cd /opt/device-cloud
+            git fetch origin main
+            bash scripts/deploy-push-file-production.sh /opt/device-cloud || {
+              git pull origin main || true
+              npm run build
+              sudo systemctl restart ddc-api.service
+            }
+            sleep 3
+            curl -fsS http://127.0.0.1:4050/health

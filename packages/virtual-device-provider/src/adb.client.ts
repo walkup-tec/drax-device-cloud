@@ -58,28 +58,42 @@ export class AdbClient {
     const { stdout } = await execFileAsync(
       this.adbBin,
       ["-s", serial, "exec-out", "screencap", "-p"],
-      { timeout: 30_000, encoding: "buffer", maxBuffer: 12 * 1024 * 1024 },
+      { timeout: 12_000, encoding: "buffer", maxBuffer: 8 * 1024 * 1024 },
     );
     return Buffer.isBuffer(stdout) ? stdout : Buffer.from(stdout);
   }
 
   async launchPackage(serial: string, packageName: string): Promise<void> {
     await this.connect(serial);
-    await execFileAsync(
-      this.adbBin,
-      [
-        "-s",
-        serial,
-        "shell",
-        "monkey",
-        "-p",
-        packageName,
-        "-c",
-        "android.intent.category.LAUNCHER",
-        "1",
-      ],
-      { timeout: 30_000 },
-    );
+    await execFileAsync(this.adbBin, ["-s", serial, "shell", "am", "force-stop", packageName], {
+      timeout: 15_000,
+    }).catch(() => undefined);
+    await execFileAsync(this.adbBin, ["-s", serial, "shell", "input", "keyevent", "3"], {
+      timeout: 8_000,
+    }).catch(() => undefined);
+    try {
+      await execFileAsync(
+        this.adbBin,
+        ["-s", serial, "shell", "am", "start", "-n", `${packageName}/com.whatsapp.Main`],
+        { timeout: 12_000 },
+      );
+    } catch {
+      await execFileAsync(
+        this.adbBin,
+        [
+          "-s",
+          serial,
+          "shell",
+          "monkey",
+          "-p",
+          packageName,
+          "-c",
+          "android.intent.category.LAUNCHER",
+          "1",
+        ],
+        { timeout: 30_000 },
+      );
+    }
   }
 
   async inputTap(serial: string, x: number, y: number): Promise<void> {

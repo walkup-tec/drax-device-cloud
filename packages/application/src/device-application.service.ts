@@ -78,6 +78,13 @@ export class DeviceApplicationService {
     return this.repo.findById(id);
   }
 
+  async rename(id: string, name: string): Promise<Device> {
+    await this.require(id);
+    const next = String(name || "").trim().slice(0, 48);
+    if (!next) throw new Error("Nome inválido");
+    return this.repo.update(id, { name: next });
+  }
+
   async start(id: string): Promise<Device> {
     const device = await this.require(id);
     const handle = device.providerHandle as unknown as DeviceHandle;

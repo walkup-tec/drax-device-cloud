@@ -54,13 +54,15 @@ export class DevicesController {
 
   @Patch(":id")
   async patch(@Param("id") id: string, @Body() body: { name?: string; description?: string }) {
-    const device = await this.devices.get(id);
-    if (!device) throw new NotFoundException("Device not found");
-    return {
-      ...device,
-      name: body.name || device.name,
-      description: body.description ?? device.description,
-    };
+    try {
+      const name = String(body?.name || "").trim();
+      if (!name) throw new HttpException("name é obrigatório", 400);
+      return await this.devices.rename(id, name);
+    } catch (err) {
+      if (err instanceof HttpException) throw err;
+      const message = err instanceof Error ? err.message : String(err);
+      throw new HttpException(message, message.includes("not found") ? 404 : 400);
+    }
   }
 
   @Delete(":id")

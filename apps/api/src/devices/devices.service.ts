@@ -46,6 +46,10 @@ export class DevicesService implements OnModuleInit {
     return this.app.get(id);
   }
 
+  rename(id: string, name: string) {
+    return this.app.rename(id, name);
+  }
+
   start(id: string) {
     return this.app.start(id);
   }
